@@ -53,16 +53,53 @@ app.use((req,res,next)=>{
 app.get("/",(req,res)=>{
     res.render("listings/home.ejs");
 })
-app.get("/listings",async (req, res) => {
-    const { search } = req.query;
+
+
+const PDFDocument = require("pdfkit");
+
+app.get("/listings/:id/receipt", async (req, res) => {
+  const { id } = req.params;
+  const student = await Student.findById(id);
+
+  if (!student || student.feeStatus !== "Paid") {
+    return res.send("Receipt not available");
+  }
+
+  
+//pdftoolkit
+
+  const doc = new PDFDocument();
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=receipt-${student.name}.pdf`
+  );
+  doc.pipe(res);
+  doc.fontSize(20).text("Hostel Fee Receipt", { align: "center" });
+  doc.moveDown();
+  doc.fontSize(14).text(`Name: ${student.name}`);
+  doc.text(`Email: ${student.email}`);
+  doc.text(`Room No: ${student.roomNo}`);
+  doc.text(`Course: ${student.course}`);
+  doc.text(`Branch: ${student.branch}`);
+  doc.text(`Status: ${student.feeStatus}`);
+  doc.moveDown();
+  doc.text("Payment Successful ✅", { align: "center" });
+  doc.end();
+});
+
+
+app.get("/listings", async (req, res) => {
+    const { search, branch } = req.query;
+    let query = {};
     if (search) {
-        const results = await Student.find({
-        });
-        res.render("listings/index", { results });
-    } else {
-        const allListings = await Student.find({});
-        res.render("listings/index", { results: allListings });
+        query.name = { $regex: search, $options: "i" };
     }
+    if (branch && branch !== "all") {
+        query.branch = branch;
+    }
+    const results = await Student.find(query);
+    res.render("listings/index", { results });
 });
 
 app.get("/listings/pricing",(req,res)=>{
@@ -77,6 +114,9 @@ app.get("/listings/:id",async(req,res)=>{
 
 app.get("/add",(req,res)=>{
      res.render("listings/new.ejs");
+})
+app.get("/price",(req,res)=>{
+    res.render("listings/price.ejs");
 })
 
 app.post("/listings", async (req, res) => {
